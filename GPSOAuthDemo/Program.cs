@@ -1,5 +1,5 @@
 ﻿using System;
-using DankMemes.GPSOAuthSharp;
+using GPSOAuthSharp;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 

@@ -4,10 +4,15 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Security.Cryptography;
+//using System.Security.Cryptography;
 using System.Text;
+using PCLCrypto;
+using System.Net.Http;
+using Newtonsoft.Json;
+using Flurl;
+using Flurl.Http;
 
-namespace DankMemes.GPSOAuthSharp
+namespace GPSOAuthSharp
 {
     // gpsoauth:__init__.py
     // URL: https://github.com/simon-weber/gpsoauth/blob/master/gpsoauth/__init__.py
@@ -33,28 +38,29 @@ namespace DankMemes.GPSOAuthSharp
         }
 
         // _perform_auth_request
-        private Dictionary<string, string> PerformAuthRequest(Dictionary<string, string> data)
+        private Dictionary<string, string> PerformAuthRequest(object data)
         {
-            NameValueCollection nvc = new NameValueCollection();
-            foreach (var kvp in data)
+            string result = string.Empty;
+            try
             {
-                nvc.Add(kvp.Key.ToString(), kvp.Value.ToString());
+                authUrl.WithHeader("User-Agent", userAgent)
+                    .PostUrlEncodedAsync(data)
+                    .ReceiveString()
+                    .ContinueWith
+                    (
+                        (e) =>
+                        {
+                            result = e.Result;
+                        }
+                    )
+                    .Wait();
             }
-            using (WebClient client = new WebClient())
+            catch (WebException ex)
             {
-                client.Headers.Add(HttpRequestHeader.UserAgent, userAgent);
-                string result;
-                try
-                {
-                    byte[] response = client.UploadValues(authUrl, nvc);
-                    result = Encoding.UTF8.GetString(response);
-                }
-                catch (WebException e)
-                {
-                    result = new StreamReader(e.Response.GetResponseStream()).ReadToEnd();
-                }
-                return GoogleKeyUtils.ParseAuthResponse(result);
+                result = new StreamReader(ex.Response.GetResponseStream()).ReadToEnd();
             }
+
+            return GoogleKeyUtils.ParseAuthResponse(result);
         }
 
         // perform_master_login
@@ -62,41 +68,45 @@ namespace DankMemes.GPSOAuthSharp
             string deviceCountry = "us", string operatorCountry = "us", string lang = "en", int sdkVersion = 21)
         {
             string signature = GoogleKeyUtils.CreateSignature(email, password, androidKey);
-            var dict = new Dictionary<string, string> {
-                { "accountType", "HOSTED_OR_GOOGLE" },
-                { "Email", email },
-                { "has_permission", 1.ToString() },
-                { "add_account", 1.ToString() },
-                { "EncryptedPasswd",  signature},
-                { "service", service },
-                { "source", "android" },
-                { "device_country", deviceCountry },
-                { "operatorCountry", operatorCountry },
-                { "lang", lang },
-                { "sdk_version", sdkVersion.ToString() }
+            var data = new
+            {
+                accountType = "HOSTED_OR_GOOGLE",
+                Email = email,
+                has_permission = 1.ToString(),
+                add_account = 1.ToString(),
+                EncryptedPasswd = signature,
+                service = service,
+                source = "android",
+                device_country = deviceCountry,
+                operatorCountry = operatorCountry,
+                lang = lang,
+                sdk_version = sdkVersion.ToString()
             };
-            return PerformAuthRequest(dict);
+            return PerformAuthRequest(data);
         }
 
         // perform_oauth
         public Dictionary<string, string> PerformOAuth(string masterToken, string service, string app, string clientSig,
             string deviceCountry = "us", string operatorCountry = "us", string lang = "en", int sdkVersion = 21)
         {
-            var dict = new Dictionary<string, string> {
-                { "accountType", "HOSTED_OR_GOOGLE" },
-                { "Email", email },
-                { "has_permission", 1.ToString() },
-                { "EncryptedPasswd",  masterToken},
-                { "service", service },
-                { "source", "android" },
-                { "app", app },
-                { "client_sig", clientSig },
-                { "device_country", deviceCountry },
-                { "operatorCountry", operatorCountry },
-                { "lang", lang },
-                { "sdk_version", sdkVersion.ToString() }
+
+            var data = new
+            {
+                accountType = "HOSTED_OR_GOOGLE",
+                Email = email,
+                has_permission = 1.ToString(),
+                add_account = 1.ToString(),
+                EncryptedPasswd = masterToken,
+                service = service,
+                source = "android",
+                app = app,
+                client_sig = clientSig,
+                device_country = deviceCountry,
+                operatorCountry = operatorCountry,
+                lang = lang,
+                sdk_version = sdkVersion.ToString()
             };
-            return PerformAuthRequest(dict);
+            return PerformAuthRequest(data);
         }
     }
 
@@ -145,13 +155,16 @@ namespace DankMemes.GPSOAuthSharp
         // signature
         public static string CreateSignature(string email, string password, RSAParameters key)
         {
-            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider();
-            rsa.ImportParameters(key);
-            SHA1 sha1 = SHA1.Create();
+            IAsymmetricKeyAlgorithmProvider alg = PCLCrypto.WinRTCrypto.AsymmetricKeyAlgorithmProvider.OpenAlgorithm(AsymmetricAlgorithm.RsaOaepSha1);
+            var importedKey = alg.ImportParameters(key);
+            var hasher = WinRTCrypto.HashAlgorithmProvider.OpenAlgorithm(HashAlgorithm.Sha1);
             byte[] prefix = { 0x00 };
-            byte[] hash = sha1.ComputeHash(GoogleKeyUtils.KeyToStruct(key)).Take(4).ToArray();
-            byte[] encrypted = rsa.Encrypt(Encoding.UTF8.GetBytes(email + "\x00" + password), true);
-            return DataTypeUtils.UrlSafeBase64(DataTypeUtils.CombineBytes(prefix, hash, encrypted));
+            byte[] keyArray = GoogleKeyUtils.KeyToStruct(key);
+            byte[] something = Encoding.UTF8.GetBytes(email + "\x00" + password);
+            byte[] hash = hasher.HashData(keyArray).Take(4).ToArray();
+            byte[] encrypted = WinRTCrypto.CryptographicEngine.Encrypt(importedKey, something, null);
+            byte[] combinedBytes = DataTypeUtils.CombineBytes(prefix, hash, encrypted);
+            return DataTypeUtils.UrlSafeBase64(combinedBytes);
         }
     }
 
