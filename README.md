@@ -1,5 +1,5 @@
 # GPSOAuthSharp
-A .NET client library for Google Play Services OAuth written in C#.
+A Portable .NET client library for Google Play Services OAuth written in C#.
 
 This is a C# port of https://github.com/simon-weber/gpsoauth
 
@@ -7,7 +7,7 @@ This is a C# port of https://github.com/simon-weber/gpsoauth
 You can find this on NuGet at https://www.nuget.org/packages/GPSOAuthSharp/
 
 ## Usage
-Construct a `DankMemes.GPSOAuthSharp.GPSOAuthClient(email, password)`.
+Construct a `GPSOAuthSharp.GPSOAuthClient(email, password)`.
 
 Use `PerformMasterLogin()` or `PerformOAuth()` to retrieve a `Dictionary<string, string>` of response values. 
 
