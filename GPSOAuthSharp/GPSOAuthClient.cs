@@ -9,7 +9,7 @@ namespace GPSOAuthSharp
 {
     public class GPSOAuthClient
     {
-        private const string Version = "0.0.5";
+        private const string Version = "1.0.0";
         private const string AuthUrl = "https://android.clients.google.com/auth";
         private const string UserAgent = "GPSOAuthSharp/" + Version;
 
