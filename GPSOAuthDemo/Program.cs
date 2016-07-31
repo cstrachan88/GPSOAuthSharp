@@ -2,18 +2,27 @@
 using GPSOAuthSharp;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace GPSOAuthDemo
 {
     class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
+        {
+            MainAsync().Wait();
+        }
+
+        static async Task MainAsync()
         {
             Console.WriteLine("Google account email: ");
             string email = Console.ReadLine();
+
             Console.WriteLine("Password: ");
             string password = "";
+
             ConsoleKeyInfo info = Console.ReadKey(true);
+
             while (info.Key != ConsoleKey.Enter)
             {
                 if (info.Key != ConsoleKey.Backspace)
@@ -35,18 +44,20 @@ namespace GPSOAuthDemo
                 info = Console.ReadKey(true);
             }
             Console.WriteLine();
+
             GPSOAuthClient client = new GPSOAuthClient(email, password);
-            Dictionary<string, string> response = client.PerformMasterLogin();
+
+            Dictionary<string, string> response = await client.PerformMasterLogin();
+
             string json = JsonConvert.SerializeObject(response, Formatting.Indented);
             Console.WriteLine(json);
+
             if (response.ContainsKey("Token"))
             {
                 string token = response["Token"];
-                Dictionary<string, string> oauthResponse = client
-                    .PerformOAuth(token, "sj", "com.google.android.music",
-                    "38918a453d07199354f8b19af05ec6562ced5788");
-                    string oauthJson = JsonConvert.SerializeObject(oauthResponse, Formatting.Indented);
-                    Console.WriteLine(oauthJson);
+                Dictionary<string, string> oauthResponse = client.PerformOAuth(token, "sj", "com.google.android.music", "38918a453d07199354f8b19af05ec6562ced5788").GetAwaiter().GetResult();
+                string oauthJson = JsonConvert.SerializeObject(oauthResponse, Formatting.Indented);
+                Console.WriteLine(oauthJson);
             }
             else
             {
