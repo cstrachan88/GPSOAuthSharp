@@ -37,7 +37,7 @@ namespace GPSOAuthSharp
         public static Dictionary<string, string> ParseAuthResponse(string text)
         {
             var split = text.Split(new[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-            return split.Select(line => line.Split('=')).ToDictionary(parts => parts[0], parts => parts[1]);
+            return split.Select(line => line.Split(new[] {'='}, 2)).ToDictionary(parts => parts[0], parts => parts[1]);
         }
 
         public static string CreateSignature(string email, string password, RSAParameters key)
