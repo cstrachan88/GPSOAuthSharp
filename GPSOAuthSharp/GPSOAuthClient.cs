@@ -7,7 +7,7 @@ using PCLCrypto;
 
 namespace GPSOAuthSharp
 {
-    public class GPSOAuthClient
+    public static class GPSOAuthClient
     {
         private const string Version = "1.0.0";
         private const string AuthUrl = "https://android.clients.google.com/auth";
@@ -25,28 +25,20 @@ namespace GPSOAuthSharp
 
         private static readonly RSAParameters AndroidKey = GoogleKeyUtils.KeyFromB64(B64Key);
 
-        private readonly string _email;
-        private readonly string _password;
-
-        public GPSOAuthClient(string email, string password)
+        public static async Task<Dictionary<string, string>> PerformMasterLogin(string email, string password, string androidId,
+            string service = "ac2dm", string deviceCountry = "us", string operatorCountry = "us",
+            string lang = "en", int sdkVersion = 21)
         {
-            _email = email;
-            _password = password;
-        }
-
-        public async Task<Dictionary<string, string>> PerformMasterLogin(string service = "ac2dm", string deviceCountry = "us", string operatorCountry = "us", string lang = "en", int sdkVersion = 21)
-        {
-            string signature = GoogleKeyUtils.CreateSignature(_email, _password, AndroidKey);
-
             return await PerformAuthRequest(new Dictionary<string, string>
             {
                 {"accountType", "HOSTED_OR_GOOGLE"},
-                {"Email", _email},
-                {"has_permission", 1.ToString()},
-                {"add_account", 1.ToString()},
-                {"EncryptedPasswd", signature},
+                {"Email", email},
+                {"has_permission", "1"},
+                {"add_account", "1"},
+                {"EncryptedPasswd", GoogleKeyUtils.CreateSignature(email, password, AndroidKey)},
                 {"service", service},
                 {"source", "android"},
+                {"androidId", androidId },
                 {"device_country", deviceCountry},
                 {"operatorCountry", operatorCountry},
                 {"lang", lang},
@@ -54,16 +46,18 @@ namespace GPSOAuthSharp
             }).ConfigureAwait(false);
         }
 
-        public async Task<Dictionary<string, string>> PerformOAuth(string masterToken, string service, string app, string clientSig, string deviceCountry = "us", string operatorCountry = "us", string lang = "en", int sdkVersion = 21)
+        public static async Task<Dictionary<string, string>> PerformOAuth(string email, string masterToken, string androidId, string service, string app, string clientSig,
+            string deviceCountry = "us", string operatorCountry = "us", string lang = "en", int sdkVersion = 21)
         {
             return await PerformAuthRequest(new Dictionary<string, string>
             {
                 {"accountType", "HOSTED_OR_GOOGLE"},
-                {"Email", _email},
-                {"has_permission", 1.ToString()},
+                {"Email", email},
+                {"has_permission", "1"},
                 {"EncryptedPasswd", masterToken},
                 {"service", service},
                 {"source", "android"},
+                {"androidId", androidId},
                 {"app", app},
                 {"client_sig", clientSig},
                 {"device_country", deviceCountry},
@@ -73,7 +67,7 @@ namespace GPSOAuthSharp
             }).ConfigureAwait(false);
         }
 
-        private async Task<Dictionary<string, string>> PerformAuthRequest(Dictionary<string, string> data)
+        private static async Task<Dictionary<string, string>> PerformAuthRequest(Dictionary<string, string> data)
         {
             using (var client = new HttpClient())
             {
